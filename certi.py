@@ -3,6 +3,7 @@ import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 import io
 import zipfile
+import os
 
 st.set_page_config(page_title="Certificate Designer Pro", layout="wide")
 
@@ -22,7 +23,18 @@ with st.sidebar:
     excel_file = st.file_uploader("Excel Sheet", type=['xlsx', 'xls'])
     img_file = st.file_uploader("Certificate Template", type=['png', 'jpg', 'jpeg'])
     
-    st.header("2. Text Settings")
+    st.header("2. Font Settings")
+    # Automatically list fonts from the fonts folder
+    font_folder = "fonts"
+    available_fonts = [f for f in os.listdir(font_folder) if f.endswith(('.ttf', '.otf'))] if os.path.exists(font_folder) else []
+    
+    if available_fonts:
+        selected_font_name = st.selectbox("Select Font", available_fonts)
+        font_path = os.path.join(font_folder, selected_font_name)
+    else:
+        st.warning("No fonts found in /fonts folder. Using default.")
+        font_path = None
+
     font_size = st.number_input("Font Size", value=120)
     font_color = st.color_picker("Font Color", "#000000")
     
@@ -37,15 +49,18 @@ if excel_file and img_file:
     names = df.iloc[:, 0].dropna().tolist()
     template = Image.open(img_file).convert("RGB")
     
+    # Load Font
+    try:
+        if font_path:
+            font = ImageFont.truetype(font_path, font_size)
+        else:
+            font = ImageFont.load_default()
+    except:
+        font = ImageFont.load_default()
+
     # Preview
     preview_img = template.copy()
     draw = ImageDraw.Draw(preview_img)
-    # Note: Streamlit uses default font if .ttf isn't provided
-    try:
-        font = ImageFont.truetype("arial.ttf", font_size)
-    except:
-        font = ImageFont.load_default()
-        
     draw.text((x_pos, y_pos), "Sample Name", fill=font_color, font=font, anchor="mm")
     st.image(preview_img, caption="Preview", use_container_width=True)
     
