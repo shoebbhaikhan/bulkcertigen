@@ -64,6 +64,8 @@ with st.sidebar:
 
     st.header("1. Upload Data")
     excel_file = st.file_uploader("Excel Sheet", type=['xlsx', 'xls'], key="excel_uploader")
+    # New instruction note
+    st.markdown("**Note: Only Column A should have all the names. All other columns must be empty.**")
     img_file = st.file_uploader("Certificate Template", type=['png', 'jpg', 'jpeg'], key="img_uploader")
     
     st.header("2. Font Settings")
@@ -178,4 +180,5 @@ if excel_file and img_file:
 
 else:
     st.info("Please upload both an Excel file and a Template image to begin.")
+
 
