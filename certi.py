@@ -20,8 +20,8 @@ st.markdown("""
 st.title("Bulk Certificate Generator")
 
 # --- Initialize Session State ---
-if "x_pos" not in st.session_state: st.session_state.x_pos = 500
-if "y_pos" not in st.session_state: st.session_state.y_pos = 400
+if "x_pos" not in st.session_state: st.session_state.x_pos = 432
+if "y_pos" not in st.session_state: st.session_state.y_pos = 365
 if "font_color" not in st.session_state: st.session_state.font_color = "#000000"
 if "zip_data" not in st.session_state: st.session_state.zip_data = None
 
@@ -48,7 +48,7 @@ with st.sidebar:
         st.warning("No fonts found in /fonts folder. Using default.")
         font_path = None
 
-    font_size = st.number_input("Font Size", min_value=10, max_value=1000, value=120)
+    font_size = st.number_input("Font Size", min_value=10, max_value=1000, value=40)
     font_color = st.color_picker("Font Color", value=st.session_state.font_color)
     st.session_state.font_color = font_color
     
@@ -119,3 +119,4 @@ if excel_file and img_file:
         )
 else:
     st.info("Please upload both an Excel file and a Template image to begin.")
+
