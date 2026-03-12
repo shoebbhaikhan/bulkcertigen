@@ -3,6 +3,7 @@ import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 import io
 import zipfile
+import os
 from streamlit_image_coordinates import streamlit_image_coordinates
 
 st.set_page_config(page_title="Certificate Designer Pro", layout="wide")
@@ -17,34 +18,42 @@ st.markdown("""
 
 st.title("Bulk Certificate Generator")
 
+# --- Initialize Session State ---
+if "x_pos" not in st.session_state: st.session_state.x_pos = 500
+if "y_pos" not in st.session_state: st.session_state.y_pos = 400
+if "font_color" not in st.session_state: st.session_state.font_color = "#000000"
+
 # --- Sidebar Controls ---
 with st.sidebar:
     st.header("1. Upload Data")
     excel_file = st.file_uploader("Excel Sheet", type=['xlsx', 'xls'])
     img_file = st.file_uploader("Certificate Template", type=['png', 'jpg', 'jpeg'])
     
-    st.header("2. Text Settings")
-    font_size = st.number_input("Font Size", value=120)
+    st.header("2. Font Settings")
+    # Feature 2 Fix: Font Selection Menu
+    font_folder = "fonts"
+    available_fonts = [f for f in os.listdir(font_folder) if f.endswith(('.ttf', '.otf'))] if os.path.exists(font_folder) else []
     
-    # Initialize session state for position and color if not set
-    if "x_pos" not in st.session_state: st.session_state.x_pos = 500
-    if "y_pos" not in st.session_state: st.session_state.y_pos = 400
-    if "font_color" not in st.session_state: st.session_state.font_color = "#000000"
+    if available_fonts:
+        selected_font_name = st.selectbox("Select Font", available_fonts)
+        font_path = os.path.join(font_folder, selected_font_name)
+    else:
+        st.warning("No fonts found in /fonts folder. Using default.")
+        font_path = None
 
-    # Color picker linked to session state
+    # Feature 1 Fix: Font Size (Removing 'value' link to state to allow manual override)
+    font_size = st.number_input("Font Size", min_value=10, max_value=1000, value=120)
+    
     font_color = st.color_picker("Font Color", value=st.session_state.font_color)
     st.session_state.font_color = font_color
     
     st.header("3. Position (X, Y)")
     col1, col2 = st.columns(2)
+    # Allow manual entry to update the session state
     x_input = col1.number_input("X", value=st.session_state.x_pos)
     y_input = col2.number_input("Y", value=st.session_state.y_pos)
-    
-    # Update state if manual input changes
     st.session_state.x_pos = x_input
     st.session_state.y_pos = y_input
-
-    st.info("💡 Click the image to set position. Use the 'Pick Color from Click' button after clicking to sync color.")
 
 # --- Logic & Preview ---
 if excel_file and img_file:
@@ -52,35 +61,44 @@ if excel_file and img_file:
     names = df.iloc[:, 0].dropna().tolist()
     template = Image.open(img_file).convert("RGB")
     
-    # Load Font
+    # Load Selected Font
     try:
-        font = ImageFont.truetype("arial.ttf", font_size)
-    except:
+        if font_path:
+            font = ImageFont.truetype(font_path, font_size)
+        else:
+            font = ImageFont.load_default()
+    except Exception as e:
+        st.error(f"Font Error: {e}")
         font = ImageFont.load_default()
 
-    # Preview Logic
+    # Preview Image
     preview_img = template.copy()
     draw = ImageDraw.Draw(preview_img)
     draw.text((st.session_state.x_pos, st.session_state.y_pos), "Sample Name", 
               fill=st.session_state.font_color, font=font, anchor="mm")
     
-    # Clickable Preview (Eye-dropper and Position tool)
-    coords = streamlit_image_coordinates(preview_img, key="pill")
+    # Clickable Area (Updates Position and allows Eye-Dropper)
+    st.subheader("Click on the image to place text or pick color")
+    coords = streamlit_image_coordinates(preview_img, key="cert_preview")
 
     if coords:
-        # Update Position
+        # Update session state with click coordinates
         st.session_state.x_pos = coords["x"]
         st.session_state.y_pos = coords["y"]
         
-        # Eye-dropper Logic: Get RGB of clicked pixel
+        # Eye-dropper logic
         pixel_rgb = template.getpixel((coords["x"], coords["y"]))
         hex_color = '#%02x%02x%02x' % pixel_rgb
         
-        if st.button(f"Use Picked Color ({hex_color})"):
+        # Button to confirm color pick so it doesn't change accidentally
+        if st.button(f"Apply Clicked Color ({hex_color})"):
             st.session_state.font_color = hex_color
             st.rerun()
+        else:
+            # Rerun to update the red dot/text position immediately on click
+            st.rerun()
 
-    # Generate
+    # Bulk Generation
     if st.button("GENERATE & DOWNLOAD ALL"):
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
