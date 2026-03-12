@@ -110,34 +110,61 @@ def reset_confirmation():
     if col_right.button("No, Keep Data", use_container_width=True):
         st.rerun()
 
-# --- Horizontal Buttons (Generate & Reset) ---
-st.divider()
-btn_col1, btn_col2 = st.columns([3, 1])
+# --- Logic & Preview ---
+if excel_file and img_file:
+    df = pd.read_excel(excel_file)
+    names = df.iloc[:, 0].dropna().tolist()
+    template = Image.open(img_file).convert("RGB")
+    
+    try:
+        font = ImageFont.truetype(font_path, font_size) if font_path else ImageFont.load_default()
+    except:
+        font = ImageFont.load_default()
 
-with btn_col1:
-    if st.button("PREPARE ALL CERTIFICATES", use_container_width=True):
-        with st.spinner(f"Generating {len(names)} certificates..."):
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                for name in names:
-                    cert = template.copy()
-                    d = ImageDraw.Draw(cert)
-                    d.text((st.session_state.x_pos, st.session_state.y_pos), str(name), 
-                           fill=font_color, font=font, anchor="mm")
-                    
-                    img_byte_arr = io.BytesIO()
-                    cert.save(img_byte_arr, format='PNG')
-                    zip_file.writestr(f"{name}.png", img_byte_arr.getvalue())
-            
-            st.session_state.zip_data = zip_buffer.getvalue()
-            st.success("Ready! Use the sidebar to download.")
+    # Preview
+    preview_img = template.copy()
+    draw = ImageDraw.Draw(preview_img)
+    draw.text((st.session_state.x_pos, st.session_state.y_pos), "Sample Name", 
+              fill=font_color, font=font, anchor="mm")
+    
+    st.subheader("Click on the template to set position:")
+    coords = streamlit_image_coordinates(preview_img, key="cert_preview")
+
+    if coords:
+        if coords["x"] != st.session_state.x_pos or coords["y"] != st.session_state.y_pos:
+            st.session_state.x_pos = coords["x"]
+            st.session_state.y_pos = coords["y"]
             st.rerun()
 
-with btn_col2:
-    st.markdown('<div class="reset-btn">', unsafe_allow_html=True)
-    if st.button("RESET", use_container_width=True):
-        reset_confirmation()
-    st.markdown('</div>', unsafe_allow_html=True)
+    # --- Horizontal Buttons (Generate & Reset) ---
+    st.divider()
+    btn_col1, btn_col2 = st.columns([3, 1])
+    
+    with btn_col1:
+        if st.button("PREPARE ALL CERTIFICATES", use_container_width=True):
+            with st.spinner(f"Generating {len(names)} certificates..."):
+                zip_buffer = io.BytesIO()
+                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                    for name in names:
+                        cert = template.copy()
+                        d = ImageDraw.Draw(cert)
+                        d.text((st.session_state.x_pos, st.session_state.y_pos), str(name), 
+                               fill=font_color, font=font, anchor="mm")
+                        
+                        img_byte_arr = io.BytesIO()
+                        cert.save(img_byte_arr, format='PNG')
+                        zip_file.writestr(f"{name}.png", img_byte_arr.getvalue())
+                
+                st.session_state.zip_data = zip_buffer.getvalue()
+                st.success("Ready! Use the sidebar to download.")
+                st.rerun()
 
+    with btn_col2:
+        st.markdown('<div class="reset-btn">', unsafe_allow_html=True)
+        if st.button("RESET", use_container_width=True):
+            reset_confirmation()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# This is the 'else' that was causing the error - it must be at the same indentation as the 'if excel_file...'
 else:
     st.info("Please upload both an Excel file and a Template image to begin.")
