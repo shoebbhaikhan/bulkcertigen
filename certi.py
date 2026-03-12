@@ -89,8 +89,13 @@ with st.sidebar:
 
     st.divider()
     
-    # Requirement 5: Creator Text
-    st.markdown('<p class="creator-text">Created by "Shoeb Iqbal Khan"</p>', unsafe_allow_html=True)
+    # Requirement 5: Creator Text & Disclaimer
+    st.markdown("""
+        <p class="creator-text">
+            Created by "Shoeb Iqbal Khan for Education Purposes only!!"<br>
+            The creator is not liable for any misuse or damage resulting from the use of this product by anyone.
+        </p>
+    """, unsafe_allow_html=True)
     
     st.header("4. Actions")
     
@@ -173,3 +178,4 @@ if excel_file and img_file:
 
 else:
     st.info("Please upload both an Excel file and a Template image to begin.")
+
