@@ -3,7 +3,7 @@ import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 import io
 import zipfile
-import os
+from streamlit_image_coordinates import streamlit_image_coordinates
 
 st.set_page_config(page_title="Certificate Designer Pro", layout="wide")
 
@@ -23,25 +23,28 @@ with st.sidebar:
     excel_file = st.file_uploader("Excel Sheet", type=['xlsx', 'xls'])
     img_file = st.file_uploader("Certificate Template", type=['png', 'jpg', 'jpeg'])
     
-    st.header("2. Font Settings")
-    # Automatically list fonts from the fonts folder
-    font_folder = "fonts"
-    available_fonts = [f for f in os.listdir(font_folder) if f.endswith(('.ttf', '.otf'))] if os.path.exists(font_folder) else []
-    
-    if available_fonts:
-        selected_font_name = st.selectbox("Select Font", available_fonts)
-        font_path = os.path.join(font_folder, selected_font_name)
-    else:
-        st.warning("No fonts found in /fonts folder. Using default.")
-        font_path = None
-
+    st.header("2. Text Settings")
     font_size = st.number_input("Font Size", value=120)
-    font_color = st.color_picker("Font Color", "#000000")
+    
+    # Initialize session state for position and color if not set
+    if "x_pos" not in st.session_state: st.session_state.x_pos = 500
+    if "y_pos" not in st.session_state: st.session_state.y_pos = 400
+    if "font_color" not in st.session_state: st.session_state.font_color = "#000000"
+
+    # Color picker linked to session state
+    font_color = st.color_picker("Font Color", value=st.session_state.font_color)
+    st.session_state.font_color = font_color
     
     st.header("3. Position (X, Y)")
     col1, col2 = st.columns(2)
-    x_pos = col1.number_input("X", value=500)
-    y_pos = col2.number_input("Y", value=400)
+    x_input = col1.number_input("X", value=st.session_state.x_pos)
+    y_input = col2.number_input("Y", value=st.session_state.y_pos)
+    
+    # Update state if manual input changes
+    st.session_state.x_pos = x_input
+    st.session_state.y_pos = y_input
+
+    st.info("💡 Click the image to set position. Use the 'Pick Color from Click' button after clicking to sync color.")
 
 # --- Logic & Preview ---
 if excel_file and img_file:
@@ -51,19 +54,32 @@ if excel_file and img_file:
     
     # Load Font
     try:
-        if font_path:
-            font = ImageFont.truetype(font_path, font_size)
-        else:
-            font = ImageFont.load_default()
+        font = ImageFont.truetype("arial.ttf", font_size)
     except:
         font = ImageFont.load_default()
 
-    # Preview
+    # Preview Logic
     preview_img = template.copy()
     draw = ImageDraw.Draw(preview_img)
-    draw.text((x_pos, y_pos), "Sample Name", fill=font_color, font=font, anchor="mm")
-    st.image(preview_img, caption="Preview", use_container_width=True)
+    draw.text((st.session_state.x_pos, st.session_state.y_pos), "Sample Name", 
+              fill=st.session_state.font_color, font=font, anchor="mm")
     
+    # Clickable Preview (Eye-dropper and Position tool)
+    coords = streamlit_image_coordinates(preview_img, key="pill")
+
+    if coords:
+        # Update Position
+        st.session_state.x_pos = coords["x"]
+        st.session_state.y_pos = coords["y"]
+        
+        # Eye-dropper Logic: Get RGB of clicked pixel
+        pixel_rgb = template.getpixel((coords["x"], coords["y"]))
+        hex_color = '#%02x%02x%02x' % pixel_rgb
+        
+        if st.button(f"Use Picked Color ({hex_color})"):
+            st.session_state.font_color = hex_color
+            st.rerun()
+
     # Generate
     if st.button("GENERATE & DOWNLOAD ALL"):
         zip_buffer = io.BytesIO()
@@ -71,7 +87,8 @@ if excel_file and img_file:
             for name in names:
                 cert = template.copy()
                 d = ImageDraw.Draw(cert)
-                d.text((x_pos, y_pos), str(name), fill=font_color, font=font, anchor="mm")
+                d.text((st.session_state.x_pos, st.session_state.y_pos), str(name), 
+                       fill=st.session_state.font_color, font=font, anchor="mm")
                 
                 img_byte_arr = io.BytesIO()
                 cert.save(img_byte_arr, format='PNG')
