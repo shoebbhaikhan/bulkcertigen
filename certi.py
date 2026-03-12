@@ -27,6 +27,12 @@ if "zip_data" not in st.session_state: st.session_state.zip_data = None
 
 # --- Sidebar Controls ---
 with st.sidebar:
+# Privacy Note
+    st.markdown("""
+        **⚠️ PRIVACY NOTE:** **We DO NOT Save your data. All data uploaded (Excel sheets and images) is temporarily processed on the cloud and is permanently deleted the moment you refresh the webpage or close this window.**
+    """)
+    st.divider() # Adds a clean line to separate the note from the tools
+    
     st.header("1. Upload Data")
     excel_file = st.file_uploader("Excel Sheet", type=['xlsx', 'xls'])
     img_file = st.file_uploader("Certificate Template", type=['png', 'jpg', 'jpeg'])
