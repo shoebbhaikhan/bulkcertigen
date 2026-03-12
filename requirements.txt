@@ -3,3 +3,4 @@ pandas
 Pillow
 matplotlib
 openpyxl
+streamlit-image-coordinates
