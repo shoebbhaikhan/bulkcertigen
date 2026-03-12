@@ -15,12 +15,13 @@ st.markdown("""
     div.stButton > button:first-child { background-color: #2ecc71; color: white; border-radius: 5px; }
     div.stDownloadButton > button:first-child { background-color: #3498db; color: white; border-radius: 5px; }
     .reset-btn > div > button { background-color: #e74c3c !important; color: white !important; border-radius: 5px; }
+    .creator-text { font-size: 14px; color: #888; margin-bottom: -10px; font-style: italic; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- Initialize Session State ---
-if "x_pos" not in st.session_state: st.session_state.x_pos = 500
-if "y_pos" not in st.session_state: st.session_state.y_pos = 400
+# --- Initialize Session State with your new defaults ---
+if "x_pos" not in st.session_state: st.session_state.x_pos = 430
+if "y_pos" not in st.session_state: st.session_state.y_pos = 370
 if "zip_data" not in st.session_state: st.session_state.zip_data = None
 if "show_success" not in st.session_state: st.session_state.show_success = False
 if "cert_count" not in st.session_state: st.session_state.cert_count = 0
@@ -76,16 +77,60 @@ with st.sidebar:
         st.warning("No fonts found in /fonts folder.")
         font_path = None
 
-    font_size = st.number_input("Font Size", min_value=10, max_value=1000, value=120)
+    # Requirement 1: Standard font size set to 40
+    font_size = st.number_input("Font Size", min_value=10, max_value=1000, value=40)
     font_color = st.color_picker("Font Color", "#000000")
     
     st.header("3. Position (X, Y)")
     col_x, col_y = st.columns(2)
+    # Requirement 2 & 3: Standard X=430, Y=370
     st.session_state.x_pos = col_x.number_input("X", value=int(st.session_state.x_pos))
     st.session_state.y_pos = col_y.number_input("Y", value=int(st.session_state.y_pos))
 
     st.divider()
+    
+    # Requirement 5: Creator Text
+    st.markdown('<p class="creator-text">Created by "Shoeb Iqbal Khan"</p>', unsafe_allow_html=True)
+    
     st.header("4. Actions")
+    
+    # Requirement 4: Buttons moved to sidebar
+    if excel_file and img_file:
+        if st.button("PREPARE ALL CERTIFICATES", use_container_width=True, key="prep_btn"):
+            # Re-running the logic here so it has access to files
+            df_temp = pd.read_excel(excel_file)
+            names_temp = df_temp.iloc[:, 0].dropna().tolist()
+            template_temp = Image.open(img_file).convert("RGB")
+            
+            try:
+                font_temp = ImageFont.truetype(font_path, font_size) if font_path else ImageFont.load_default()
+            except:
+                font_temp = ImageFont.load_default()
+
+            with st.spinner(f"Generating {len(names_temp)} certificates..."):
+                zip_buffer = io.BytesIO()
+                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                    for name in names_temp:
+                        cert = template_temp.copy()
+                        d = ImageDraw.Draw(cert)
+                        d.text((st.session_state.x_pos, st.session_state.y_pos), str(name), 
+                               fill=font_color, font=font_temp, anchor="mm")
+                        
+                        img_byte_arr = io.BytesIO()
+                        cert.save(img_byte_arr, format='PNG')
+                        zip_file.writestr(f"{name}.png", img_byte_arr.getvalue())
+                
+                st.session_state.zip_data = zip_buffer.getvalue()
+                st.session_state.cert_count = len(names_temp)
+                st.session_state.show_success = True
+                st.rerun()
+
+        st.markdown('<div class="reset-btn">', unsafe_allow_html=True)
+        if st.button("RESET PAGE", use_container_width=True, key="reset_trigger"):
+            reset_confirmation()
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.divider()
     if st.session_state.zip_data:
         st.download_button(
             label="⬇️ DOWNLOAD ZIP FILE",
@@ -98,7 +143,7 @@ with st.sidebar:
     else:
         st.info("Prepare certificates to enable download.")
 
-# --- Logic & Preview ---
+# --- Preview Logic (Main Page) ---
 if excel_file and img_file:
     df = pd.read_excel(excel_file)
     names = df.iloc[:, 0].dropna().tolist()
@@ -123,37 +168,6 @@ if excel_file and img_file:
             st.session_state.y_pos = coords["y"]
             st.rerun()
 
-    # --- Footer Buttons ---
-    st.divider()
-    btn_col1, btn_col2 = st.columns([3, 1])
-    
-    with btn_col1:
-        if st.button("PREPARE ALL CERTIFICATES", use_container_width=True, key="prep_btn"):
-            with st.spinner(f"Generating {len(names)} certificates..."):
-                zip_buffer = io.BytesIO()
-                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                    for name in names:
-                        cert = template.copy()
-                        d = ImageDraw.Draw(cert)
-                        d.text((st.session_state.x_pos, st.session_state.y_pos), str(name), 
-                               fill=font_color, font=font, anchor="mm")
-                        
-                        img_byte_arr = io.BytesIO()
-                        cert.save(img_byte_arr, format='PNG')
-                        zip_file.writestr(f"{name}.png", img_byte_arr.getvalue())
-                
-                st.session_state.zip_data = zip_buffer.getvalue()
-                st.session_state.cert_count = len(names)
-                st.session_state.show_success = True
-                st.rerun()
-
-    with btn_col2:
-        st.markdown('<div class="reset-btn">', unsafe_allow_html=True)
-        if st.button("RESET", use_container_width=True, key="reset_trigger"):
-            reset_confirmation()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # Trigger Success Modal
     if st.session_state.show_success:
         success_dialog()
 
